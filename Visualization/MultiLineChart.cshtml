@@ -1,0 +1,285 @@
+﻿<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+svg {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.legend {
+            padding: 5px;
+            font: 15px sans-serif;
+            background: yellow;
+            box-shadow: 2px 2px 1px #888;
+}
+
+.axislabel {
+            padding: 15px;
+            font: 10px sans-serif;
+            background: red;
+            box-shadow: 2px 2px 1px #888;
+}
+        
+.x.axis path {
+  fill:none;
+  stroke:#000;
+  shape-rendering: crispEdges;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2px;
+}
+
+</style>
+<table>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.1/themes/base/jquery-ui.css" />
+<script src="http://d3js.org/d3.v3.js"></script>
+<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+<script src="http://code.jquery.com/ui/1.10.1/jquery-ui.js"></script>
+<script>
+    $(function () {
+        $("#datepicker").datepicker({ minDate: new Date(2011, 1 - 1, 01), maxDate: new Date(2011, 2, 31) });
+        $("#datepicker").datepicker({
+            dateFormat: "yy-mm-dd"
+        }).datepicker("setDate", new Date(2011, 1 - 1, 01));
+        $("#datepicker").change(function () {
+            $("#datepicker").datepicker("option", "dateFormat", "yy-mm-dd");
+            date = $("#datepicker").val();
+            getJsonFromServer(date);
+        })
+    });
+
+    $(document).ready(function () {
+
+        getJsonFromServer();
+    }
+    );
+
+    function getJsonFromServer(date) {
+        if (typeof (date) == "undefined") {
+            date = '2011-01-11';
+        }
+
+        var json = $.getJSON("http://ec2-23-22-47-28.compute-1.amazonaws.com/WikiGolem/api/Wiki" + "?date=" + date,
+                 function (data) {
+                     // On success, 'data' contains a list of wikistats.
+                     var stats = [];
+                     $.each(data, function (key, val) {
+
+                         // Format the text to display.
+                         var str = { Name: val.Name, wikiDate: val.wikiDate.split('T')[0], Pagecount: val.Pagecount };
+                         stats.push(str);
+                     });
+                     plotStats(stats);
+                 });
+    }
+
+    function plotStats(data) {
+        var margin = { top: 20, right: 300, bottom: 100, left: 100 },
+            width = 1200 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+
+        d3.select("svg").remove();
+        var parseDate = d3.time.format("%Y-%m-%d").parse;
+
+        var x = d3.time.scale()
+            .range([0, width-200]);
+
+        var y = d3.scale.linear()
+            .range([height, 0]);
+
+        var color = d3.scale.category10();
+
+        var xAxis = d3.svg.axis()
+            .scale(x)
+            .orient("bottom");
+
+        var yAxis = d3.svg.axis()
+            .scale(y)
+            .orient("left");
+
+        var line = d3.svg.line()
+            .interpolate("basis")
+            .x(function (d) { return x(d.wikiDate); })
+            .y(function (d) { return y(d.Pagecount); });
+
+        var svg = d3.select("body").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        color.domain(d3.keys(data[0]).filter(function (key) { return key == "Name"; }));
+
+        // first we need to corerce the data into the right formats
+
+        data = data.map(function (d) {
+            return {
+                Name: d.Name,
+                wikiDate: parseDate(d.wikiDate),
+                Pagecount: +d.Pagecount
+            };
+        });
+
+
+        // then we need to nest the data on Names since we want to only draw one
+        // line per article
+        data = d3.nest().key(function (d) { return d.Name; }).entries(data);
+
+        var namesList = [];
+        $.each(data, function (key,val) {
+            namesList.push(val.key);
+            //console.log(val.key);
+        });
+        
+        var jObject = {};
+        for (i in namesList) {
+            jObject[i] = namesList[i];
+        }
+
+        console.log(JSON.stringify(jObject));
+
+        jQuery.ajax({
+            url: "http://ec2-23-22-47-28.compute-1.amazonaws.com:8080/scraper",
+            type: "POST",
+            data: JSON.stringify(jObject),
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function (response) {
+                $("map").remove();
+                var json = response;
+                var $table = $('<table id="map border="1" />');
+
+                $.each(json, function(index, value) {
+                    //create a row
+                    var $row = $('<tr/>');
+
+                    //create the id column
+                    $('<td/>').text(index.replace(new RegExp("_", "gm"), " ")).appendTo($row);
+                    $('<td/>').text(value.replace(new RegExp("_", "gm"), " ")).appendTo($row);
+
+                    $table.append($row);
+                });
+
+                //append table to the body
+                $('body').append($table);
+            }
+        });
+
+        $(function(){
+            $('form[name=new_post]').submit(function(){
+        jQuery.ajax({
+            url: "http://ec2-23-22-47-28.compute-1.amazonaws.com:8080/bucket",
+            type: "POST",
+            data: JSON.stringify(jObject),
+            dataType: "json",
+            contentType: "application/json; charset=utf-8",
+            success: function (response) {
+                $("map2").remove();
+                var json = response;
+                var $table = $('<table id="map2" />');
+
+                $.each(json, function (index, value) {
+                    //create a row
+                    var $row = $('<tr/>');
+
+                    //create the id column
+                    $('<td/>').text(index.replace(new RegExp("_", "gm"), " ")).appendTo($row);
+                    $('<td/>').text(value.replace(new RegExp("_", "gm"), " ")).appendTo($row);
+
+                    $table.append($row);
+                });
+
+                //append table to the body
+                $('body').append($table);
+            }
+        });
+            });
+        });
+    
+        x.domain([d3.min(data, function (d) { return d3.min(d.values, function (d) { return d.wikiDate; }); }),
+                   d3.max(data, function (d) { return d3.max(d.values, function (d) { return d.wikiDate; }); })]);
+        y.domain([0, d3.max(data, function (d) { return d3.max(d.values, function (d) { return d.Pagecount; }); })]);
+
+
+        svg.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + height + ")")
+            .call(xAxis);
+
+        svg.append("text")
+         .attr("class", "axislabel")
+         .attr("text-anchor", "end")
+         .attr("x", width - 200)
+         .attr("y", height + 35)
+         .text("Time - Dates as days in month");
+
+        svg.append("g")
+            .attr("class", "y axis")
+            .call(yAxis);
+
+        svg.append("text")
+        .attr("class", "axislabel")
+        .attr("text-anchor", "end")
+        .attr("y", -75)
+        .attr("dy", ".75em")
+        .attr("transform", "rotate(-90)")
+        .text("Pagehits");
+
+        var names = svg.selectAll(".Name")
+            .data(data, function (d) { return d.key; })
+          .enter().append("g")
+            .attr("class", "Name");
+
+        names.append("path")
+            .attr("class", "line")
+            .attr("d", function (d) { return line(d.values); })
+            .style("stroke", function (d) { return color(d.key); });
+
+        var legend = svg.append("g")
+        .attr("class", "legend")
+        .attr("x", width - 65)
+        .attr("y", 25)
+        .attr("height", 100)
+        .attr("width", 100);
+
+        legend.selectAll('g').data(data)
+          .enter()
+          .append('g')
+          .each(function (d, i) {
+              var g = d3.select(this);
+              g.append("rect")
+                .attr("x", width - 65)
+                .attr("y", i * 25)
+                .attr("width", 10)
+                .attr("height", 10)
+                .style("fill", function (d) { return color(d.key); });
+
+              g.append("text")
+                .attr("x", width - 50)
+                .attr("y", i * 25 + 8)
+                .attr("height", 30)
+                .attr("width", 100)
+                .style("fill", function (d) { return color(d.key); })
+                .text(function (d) { return d.key.replace(new RegExp("_", "gm"), " "); });
+          });
+
+
+    }
+</script>
+    <h2>Wikipedia Traffic Analysis</h2>
+    <p>Date: <input type="text" id="datepicker" /></p>
+    <form name="new_post" method=POST>
+    <input id="new_post_submit" type="submit" value="Analyze" />
+    </form>
+    
+    

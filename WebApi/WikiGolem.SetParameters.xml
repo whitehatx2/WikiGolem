@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <setParameter name="IIS Web Application Name" value="Default Web Site/WikiGolem_deploy" />
+  <setParameter name="DefaultConnection-Web.config Connection String" value="Data Source=(LocalDb)\v11.0;Initial Catalog=aspnet-WikiGolem-20130302181820;Integrated Security=SSPI;AttachDBFilename=|DataDirectory|\aspnet-WikiGolem-20130302181820.mdf" />
+  <setParameter name="GolemEntities-Web.config Connection String" value="metadata=res://*/Models.WikiModel.csdl|res://*/Models.WikiModel.ssdl|res://*/Models.WikiModel.msl;provider=System.Data.SqlClient;provider connection string='Data Source=(LocalDB)\v11.0;AttachDbFilename=&quot;C:\Users\whitehatx2\Documents\Visual Studio 2012\Projects\WikiGolem\WikiGolem\App_Data\Golem.mdf&quot;;Integrated Security=True;Connect Timeout=30'" />
+</parameters>
